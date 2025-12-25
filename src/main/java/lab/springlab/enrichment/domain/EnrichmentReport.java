@@ -1,5 +1,7 @@
 package lab.springlab.enrichment.domain;
 
+import lab.springlab.enrichment.lab.LabLatencyStats;
+
 public record EnrichmentReport(
         long pending,
         long processing,
@@ -13,5 +15,17 @@ public record EnrichmentReport(
         long totalStuckRecovered,
         long avgProcessingMs,
         long totalElapsedMs,
-        double jobsPerMinute) {
+        double jobsPerMinute,
+        String runId,
+        String scenario,
+        String mode,
+        int items,
+        Long startedAtMs,
+        Long finishedAtMs,
+        Long drainTimeMs,
+        LabLatencyStats latencyNs,
+        long successCount,
+        long failCount,
+        long retryCount,
+        boolean runDone) {
 }

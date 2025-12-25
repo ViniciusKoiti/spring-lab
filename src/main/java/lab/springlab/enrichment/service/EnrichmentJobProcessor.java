@@ -4,6 +4,7 @@ import lab.springlab.enrichment.client.ExternalEnrichmentClient;
 import lab.springlab.enrichment.config.EnrichmentProperties;
 import lab.springlab.enrichment.domain.EnrichmentStatus;
 import lab.springlab.enrichment.exception.ExternalEnrichmentException;
+import lab.springlab.enrichment.lab.LabMetricsCollector;
 import lab.springlab.enrichment.repository.EnrichmentJobRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,45 +24,54 @@ public class EnrichmentJobProcessor {
     private final EnrichmentProperties properties;
     private final Semaphore semaphore;
     private final EnrichmentProcessingMetrics metrics;
+    private final LabMetricsCollector labMetrics;
 
     public EnrichmentJobProcessor(EnrichmentJobRepository repository,
                                   ExternalEnrichmentClient externalClient,
                                   EnrichmentProperties properties,
                                   Semaphore semaphore,
-                                  EnrichmentProcessingMetrics metrics) {
+                                  EnrichmentProcessingMetrics metrics,
+                                  LabMetricsCollector labMetrics) {
         this.repository = repository;
         this.externalClient = externalClient;
         this.properties = properties;
         this.semaphore = semaphore;
         this.metrics = metrics;
+        this.labMetrics = labMetrics;
     }
 
     public void processJob(UUID jobId, String payloadJson, int retryCount) {
-        Instant started = Instant.now();
         try {
             semaphore.acquire();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             scheduleRetry(jobId, retryCount, "Interrupted while waiting for semaphore");
+            labMetrics.recordRetry(0L);
             return;
         }
 
+        long startedNs = System.nanoTime();
+        Instant started = Instant.now();
         try {
             attemptEnrichment(payloadJson);
             repository.markDone(jobId, EnrichmentStatus.DONE, Instant.now());
             metrics.recordSuccess(Duration.between(started, Instant.now()).toMillis());
+            labMetrics.recordSuccess(System.nanoTime() - startedNs);
         } catch (ExternalEnrichmentException ex) {
             if (ex.isRetryable()) {
                 log.warn("Retryable error jobId={} retryCount={} message={}", jobId, retryCount, ex.getMessage());
                 scheduleRetry(jobId, retryCount, ex.getMessage());
+                labMetrics.recordRetry(System.nanoTime() - startedNs);
             } else {
                 log.warn("Non-retryable error jobId={} message={}", jobId, ex.getMessage());
                 repository.markError(jobId, EnrichmentStatus.ERROR, Instant.now(), ex.getMessage());
                 metrics.recordError(Duration.between(started, Instant.now()).toMillis());
+                labMetrics.recordFail(System.nanoTime() - startedNs);
             }
         } catch (Exception ex) {
             log.warn("Unexpected error jobId={} message={}", jobId, ex.getMessage());
             scheduleRetry(jobId, retryCount, "Unexpected error: " + ex.getMessage());
+            labMetrics.recordRetry(System.nanoTime() - startedNs);
         } finally {
             semaphore.release();
         }

@@ -88,6 +88,17 @@ public class EnrichmentProcessingMetrics {
         return Duration.between(start, end).toMillis();
     }
 
+    public void reset() {
+        totalProcessed.set(0L);
+        totalSuccess.set(0L);
+        totalErrors.set(0L);
+        totalRetryScheduled.set(0L);
+        totalStuckRecovered.set(0L);
+        totalProcessingMs.set(0L);
+        firstProcessedAt.set(null);
+        lastProcessedAt.set(null);
+    }
+
     private void updateProcessedWindow() {
         Instant now = Instant.now();
         firstProcessedAt.compareAndSet(null, now);

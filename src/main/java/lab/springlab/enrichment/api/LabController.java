@@ -47,6 +47,7 @@ public class LabController {
     @PostMapping("/seed")
     public ResponseEntity<SeedResponse> seed(@RequestParam(defaultValue = "100") int items) {
         log.info("Seeding enrichment jobs items={}", items);
+        reportService.registerSeed(items);
         List<EnrichmentJob> jobs = IntStream.range(0, items)
                 .mapToObj(index -> new EnrichmentJob(UUID.randomUUID(),
                         "{\"jobIndex\":" + index + ",\"seededAt\":\"" + Instant.now() + "\"}"))
@@ -58,12 +59,14 @@ public class LabController {
     @PostMapping("/run")
     public ResponseEntity<DispatchResult> run() {
         log.info("Dispatching enrichment jobs async");
+        reportService.startRun("async");
         return ResponseEntity.ok(asyncService.dispatchPendingJobs());
     }
 
     @PostMapping("/run-sync")
     public ResponseEntity<DispatchResult> runSync() {
         log.info("Dispatching enrichment jobs sync");
+        reportService.startRun("sync");
         return ResponseEntity.ok(syncService.dispatchPendingJobsSync());
     }
 
@@ -87,6 +90,13 @@ public class LabController {
     public ResponseEntity<EnrichmentReport> report() {
         log.info("Reporting enrichment metrics");
         return ResponseEntity.ok(reportService.report());
+    }
+
+    @PostMapping("/report/reset")
+    public ResponseEntity<Void> resetReport() {
+        log.info("Resetting enrichment metrics");
+        reportService.reset();
+        return ResponseEntity.noContent().build();
     }
 
 }
