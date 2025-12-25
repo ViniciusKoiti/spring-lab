@@ -7,7 +7,9 @@ import lab.springlab.enrichment.dto.DispatchResult;
 import lab.springlab.enrichment.dto.EnrichmentJobView;
 import lab.springlab.enrichment.dto.SeedResponse;
 import lab.springlab.enrichment.repository.EnrichmentJobRepository;
-import lab.springlab.enrichment.service.EnrichmentService;
+import lab.springlab.enrichment.service.EnrichmentAsyncService;
+import lab.springlab.enrichment.service.EnrichmentReportService;
+import lab.springlab.enrichment.service.EnrichmentSyncService;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -28,11 +30,18 @@ public class LabController {
 
     private static final Logger log = LoggerFactory.getLogger(LabController.class);
     private final EnrichmentJobRepository repository;
-    private final EnrichmentService enrichmentService;
+    private final EnrichmentAsyncService asyncService;
+    private final EnrichmentSyncService syncService;
+    private final EnrichmentReportService reportService;
 
-    public LabController(EnrichmentJobRepository repository, EnrichmentService enrichmentService) {
+    public LabController(EnrichmentJobRepository repository,
+                         EnrichmentAsyncService asyncService,
+                         EnrichmentSyncService syncService,
+                         EnrichmentReportService reportService) {
         this.repository = repository;
-        this.enrichmentService = enrichmentService;
+        this.asyncService = asyncService;
+        this.syncService = syncService;
+        this.reportService = reportService;
     }
 
     @PostMapping("/seed")
@@ -49,13 +58,13 @@ public class LabController {
     @PostMapping("/run")
     public ResponseEntity<DispatchResult> run() {
         log.info("Dispatching enrichment jobs async");
-        return ResponseEntity.ok(enrichmentService.dispatchPendingJobs());
+        return ResponseEntity.ok(asyncService.dispatchPendingJobs());
     }
 
     @PostMapping("/run-sync")
     public ResponseEntity<DispatchResult> runSync() {
         log.info("Dispatching enrichment jobs sync");
-        return ResponseEntity.ok(enrichmentService.dispatchPendingJobsSync());
+        return ResponseEntity.ok(syncService.dispatchPendingJobsSync());
     }
 
     @GetMapping("/jobs")
@@ -77,7 +86,7 @@ public class LabController {
     @GetMapping("/report")
     public ResponseEntity<EnrichmentReport> report() {
         log.info("Reporting enrichment metrics");
-        return ResponseEntity.ok(enrichmentService.report());
+        return ResponseEntity.ok(reportService.report());
     }
 
 }
