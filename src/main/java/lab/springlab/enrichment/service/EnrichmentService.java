@@ -18,6 +18,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EnrichmentService {
 
+    private static final Logger log = LoggerFactory.getLogger(EnrichmentService.class);
     private final EnrichmentJobRepository repository;
     private final ExternalEnrichmentClient externalClient;
     private final EnrichmentProperties properties;
@@ -50,8 +53,9 @@ public class EnrichmentService {
         this.semaphore = semaphore;
     }
 
-    @Scheduled(fixedDelayString = "${lab.enrichment.scheduler-fixed-delay-ms:5000}")
+    // @Scheduled(fixedDelayString = "${lab.enrichment.scheduler-fixed-delay-ms:5000}")
     public void scheduledDispatch() {
+        log.info("Scheduled dispatch tick");
         dispatchPendingJobs();
     }
 
@@ -74,18 +78,47 @@ public class EnrichmentService {
             }
         }
 
+        log.info("Dispatch async completed claimed={} stuckRecovered={}", claimed, stuckRecovered);
+        return new DispatchResult(claimed, stuckRecovered);
+    }
+
+    public DispatchResult dispatchPendingJobsSync() {
+        int stuckRecovered = recoverStuckJobs();
+        Instant now = Instant.now();
+        List<EnrichmentJob> candidates = repository.findPending(
+                EnrichmentStatus.PENDING,
+                EnrichmentStatus.RETRY_SCHEDULED,
+                now,
+                PageRequest.of(0, properties.getBatchSize()));
+
+        int claimed = 0;
+        for (EnrichmentJob job : candidates) {
+            int updated = repository.claim(job.getId(), EnrichmentStatus.PROCESSING, Instant.now(),
+                    EnumSet.of(EnrichmentStatus.PENDING, EnrichmentStatus.RETRY_SCHEDULED));
+            if (updated == 1) {
+                claimed++;
+                processJob(job.getId(), job.getPayloadJson(), job.getRetryCount());
+            }
+        }
+
+        log.info("Dispatch sync completed claimed={} stuckRecovered={}", claimed, stuckRecovered);
         return new DispatchResult(claimed, stuckRecovered);
     }
 
     @Async("enrichmentExecutor")
     public CompletableFuture<Void> processJobAsync(UUID jobId, String payloadJson, int retryCount) {
+        processJob(jobId, payloadJson, retryCount);
+        return CompletableFuture.completedFuture(null);
+    }
+
+    private void processJob(UUID jobId, String payloadJson, int retryCount) {
         Instant started = Instant.now();
         try {
             semaphore.acquire();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             scheduleRetry(jobId, retryCount, "Interrupted while waiting for semaphore");
-            return CompletableFuture.completedFuture(null);
+            return;
         }
 
         try {
@@ -94,18 +127,19 @@ public class EnrichmentService {
             recordSuccess(Duration.between(started, Instant.now()).toMillis());
         } catch (ExternalEnrichmentException ex) {
             if (ex.isRetryable()) {
+                log.warn("Retryable error jobId={} retryCount={} message={}", jobId, retryCount, ex.getMessage());
                 scheduleRetry(jobId, retryCount, ex.getMessage());
             } else {
+                log.warn("Non-retryable error jobId={} message={}", jobId, ex.getMessage());
                 repository.markError(jobId, EnrichmentStatus.ERROR, Instant.now(), ex.getMessage());
                 recordError(Duration.between(started, Instant.now()).toMillis());
             }
         } catch (Exception ex) {
+            log.warn("Unexpected error jobId={} message={}", jobId, ex.getMessage());
             scheduleRetry(jobId, retryCount, "Unexpected error: " + ex.getMessage());
         } finally {
             semaphore.release();
         }
-
-        return CompletableFuture.completedFuture(null);
     }
 
     private String attemptEnrichment(String payloadJson) {
@@ -122,7 +156,12 @@ public class EnrichmentService {
                 sleepBackoff(attempt);
             } catch (org.springframework.web.reactive.function.client.WebClientRequestException ex) {
                 if (attempt == maxAttempts) {
-                    throw new ExternalEnrichmentException(\"Timeout or connection error: \" + ex.getMessage(), null, true);
+                    throw new ExternalEnrichmentException(
+                            "\nTimeout or connection error: " + ex.getMessage(),
+                            null,
+                            true
+                    );
+
                 }
                 sleepBackoff(attempt);
             }
@@ -157,6 +196,7 @@ public class EnrichmentService {
                 "Recovered stuck job");
         if (recovered > 0) {
             totalStuckRecovered.addAndGet(recovered);
+            log.warn("Recovered stuck jobs count={}", recovered);
         }
         return recovered;
     }
@@ -194,11 +234,12 @@ public class EnrichmentService {
         long retry = repository.countByStatus(EnrichmentStatus.RETRY_SCHEDULED);
 
         double jobsPerMinute = calculateJobsPerMinute();
+        long totalElapsedMs = calculateTotalElapsedMs();
         long avgProcessingMs = totalProcessed.get() == 0 ? 0 : totalProcessingMs.get() / totalProcessed.get();
 
         return new EnrichmentReport(pending, processing, done, error, retry,
                 totalProcessed.get(), totalSuccess.get(), totalErrors.get(), totalRetryScheduled.get(),
-                totalStuckRecovered.get(), avgProcessingMs, jobsPerMinute);
+                totalStuckRecovered.get(), avgProcessingMs, totalElapsedMs, jobsPerMinute);
     }
 
     private double calculateJobsPerMinute() {
@@ -212,6 +253,15 @@ public class EnrichmentService {
             return 0.0;
         }
         return (totalProcessed.get() / (seconds / 60.0));
+    }
+
+    private long calculateTotalElapsedMs() {
+        Instant start = firstProcessedAt.get();
+        Instant end = lastProcessedAt.get();
+        if (start == null || end == null) {
+            return 0L;
+        }
+        return Duration.between(start, end).toMillis();
     }
 
 }

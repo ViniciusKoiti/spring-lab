@@ -12,5 +12,6 @@ public record EnrichmentReport(
         long totalRetryScheduled,
         long totalStuckRecovered,
         long avgProcessingMs,
+        long totalElapsedMs,
         double jobsPerMinute) {
 }
