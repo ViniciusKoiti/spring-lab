@@ -1,0 +1,13 @@
+run,label,pending,processing,done,error,retryScheduled,totalProcessed,totalSuccess,totalErrors,totalRetryScheduled,totalStuckRecovered,avgProcessingMs,totalElapsedMs,jobsPerMinute,runId,scenario,mode,items,startedAtMs,finishedAtMs,drainTimeMs,successCount,failCount,retryCount,runDone
+== run 1/3 (sync) ==
+1,sync,0,0,1000,0,0,500,500,0,0,0,1,1290,30000.0,run-3,default,sync,0,1766800139894,1766800140483,589,500,0,0,True
+== run 1/3 (async) ==
+1,async,0,0,1500,0,0,500,500,0,0,0,1,1741,30000.0,run-4,default,async,500,1766800140698,1766800143501,2803,500,0,0,True
+== run 2/3 (sync) ==
+2,sync,0,0,2000,0,0,500,500,0,0,0,1,1366,30000.0,run-6,default,sync,0,1766800144381,1766800145095,714,500,0,0,True
+== run 2/3 (async) ==
+2,async,0,0,2500,0,0,500,500,0,0,0,1,3059,10000.0,run-7,default,async,500,1766800145290,1766800149125,3835,500,0,0,True
+== run 3/3 (sync) ==
+3,sync,0,0,3000,0,0,500,500,0,0,0,2,1877,30000.0,run-9,default,sync,0,1766800150367,1766800151333,966,500,0,0,True
+== run 3/3 (async) ==
+3,async,0,0,3500,0,0,500,500,0,0,0,1,2435,15000.0,run-10,default,async,500,1766800151539,1766800154310,2771,500,0,0,True

@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '4.0.1'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'me.champeau.jmh' version '0.7.2'
 }
 
 group = 'lab'
@@ -27,15 +28,26 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webservices'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5'
     implementation 'org.hdrhistogram:HdrHistogram:2.1.12'
+    implementation 'com.github.tomakehurst:wiremock-jre8:2.35.0'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.h2database:h2'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+    jmh 'org.openjdk.jmh:jmh-core:1.37'
+    jmh 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-restclient-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webclient-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webservices-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.register('runExternalMock', JavaExec) {
+    group = 'application'
+    description = 'Run the external WireMock server for lab benchmarks.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'lab.springlab.enrichment.mock.ExternalMockServer'
+    args = project.hasProperty('wiremockArgs') ? project.property('wiremockArgs').toString().split(',') : []
 }
 
 tasks.named('test') {

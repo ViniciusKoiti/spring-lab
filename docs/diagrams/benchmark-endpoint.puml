@@ -1,0 +1,31 @@
+@startuml
+title Benchmark Endpoint - End-to-End
+
+actor Client
+participant "EnrichmentBenchmarkController" as Controller
+participant "EnrichmentBenchmarkService" as Service
+participant "ExternalEnrichmentClient" as ExternalClient
+participant "External API (Mock/Real)" as External
+
+Client -> Controller: POST /enrich/benchmark
+Controller -> Service: run(request)
+Service -> Service: resolve mode/items/permits
+
+alt SYNC
+  loop items
+    Service -> ExternalClient: enrich(payload)
+    ExternalClient -> External: POST /enrich
+    External --> ExternalClient: 200/5xx
+  end
+else ASYNC_UNBOUNDED
+  Service -> ExternalClient: fan-out tasks (virtual threads)
+  ExternalClient -> External: POST /enrich
+else ASYNC_SEMAPHORE
+  Service -> ExternalClient: fan-out with semaphore
+  ExternalClient -> External: POST /enrich
+end
+
+Service --> Controller: BenchmarkResponse
+Controller --> Client: {durationMs, itemsProcessed, errors, mode, permits}
+
+@enduml

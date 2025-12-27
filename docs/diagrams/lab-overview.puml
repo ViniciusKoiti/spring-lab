@@ -1,0 +1,34 @@
+@startuml
+title SpringLab - Fluxo de Processamento (Lab)
+
+actor User
+participant "LabController" as Lab
+participant "EnrichmentJobRepository" as Repo
+participant "EnrichmentAsyncService" as AsyncSvc
+participant "EnrichmentSyncService" as SyncSvc
+participant "EnrichmentJobProcessor" as Processor
+participant "ExternalEnrichmentClient" as ExternalClient
+participant "External API" as External
+
+User -> Lab: POST /lab/seed?items=N
+Lab -> Repo: saveAll(PENDING)
+
+User -> Lab: POST /lab/run
+Lab -> AsyncSvc: dispatchPendingJobs()
+AsyncSvc -> Repo: claim(PENDING/RETRY)
+AsyncSvc -> Processor: processJobAsync(...)
+Processor -> ExternalClient: enrich(payload)
+ExternalClient -> External: POST /enrich
+External --> ExternalClient: 200/5xx/timeout
+Processor -> Repo: mark DONE/ERROR or schedule RETRY
+
+User -> Lab: POST /lab/run-sync
+Lab -> SyncSvc: dispatchPendingJobsSync()
+SyncSvc -> Repo: claim(PENDING/RETRY)
+SyncSvc -> Processor: processJob(...)
+
+User -> Lab: GET /lab/report
+Lab -> Repo: countByStatus(...)
+Lab -> Processor: (metrics already in memory)
+
+@enduml

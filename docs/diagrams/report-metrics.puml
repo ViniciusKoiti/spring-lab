@@ -1,0 +1,20 @@
+@startuml
+title Lab Report - Métricas e Run Context
+
+participant "EnrichmentReportService" as ReportService
+participant "LabMetricsCollector" as Collector
+participant "EnrichmentProcessingMetrics" as ProcMetrics
+participant "EnrichmentJobRepository" as Repo
+
+ReportService -> Repo: countByStatus(...)
+ReportService -> ProcMetrics: totals, avgProcessingMs
+ReportService -> Collector: runSnapshot(done)
+ReportService -> Collector: metricsSnapshot()
+
+note right of Collector
+latencyNs: count/min/max/avg/p95
+successCount/failCount/retryCount
+runId/mode/items/startedAt/finishedAt
+end note
+
+@enduml

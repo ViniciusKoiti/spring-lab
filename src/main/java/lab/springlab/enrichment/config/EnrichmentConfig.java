@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.http.client.HttpClient;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 
@@ -32,7 +33,11 @@ public class EnrichmentConfig {
 
     @Bean
     WebClient enrichmentWebClient(EnrichmentProperties properties) {
-        HttpClient httpClient = HttpClient.create()
+        ConnectionProvider provider = ConnectionProvider.builder("enrichment-pool")
+                .maxConnections(properties.getHttpMaxConnections())
+                .pendingAcquireMaxCount(properties.getHttpMaxConnections() * 2)
+                .build();
+        HttpClient httpClient = HttpClient.create(provider)
                 .responseTimeout(Duration.ofMillis(properties.getHttpTimeoutMs()));
         return WebClient.builder()
                 .baseUrl(properties.getExternalBaseUrl())

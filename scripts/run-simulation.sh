@@ -15,8 +15,12 @@ MONITOR_MEMORY="${MONITOR_MEMORY:-true}"
 MONITOR_INTERVAL_MS="${MONITOR_INTERVAL_MS:-1000}"
 MONITOR_METRIC_NAME="${MONITOR_METRIC_NAME:-jvm.memory.used}"
 MONITOR_METRIC_TAGS="${MONITOR_METRIC_TAGS:-area=heap}"
+CAPTURE_REPORT="${CAPTURE_REPORT:-true}"
+REPORT_INTERVAL_MS="${REPORT_INTERVAL_MS:-500}"
+REPORT_OUTPUT_DIR="${REPORT_OUTPUT_DIR:-results}"
 
 MONITOR_PID=""
+REPORT_PID=""
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -102,8 +106,34 @@ stop_monitor() {
   MONITOR_PID=""
 }
 
+start_report_capture() {
+  [[ "$CAPTURE_REPORT" == "true" ]] || return 0
+  local label="$1"
+  mkdir -p "$REPORT_OUTPUT_DIR"
+  local report_path="${REPORT_OUTPUT_DIR}/report-${label}-$(now_ms).csv"
+  echo "report log: $report_path"
+
+  BASE_URL="$BASE_URL" \
+    INTERVAL_MS="$REPORT_INTERVAL_MS" \
+    OUTPUT="$report_path" \
+    PYTHON_BIN="${PYTHON_BIN:-python3}" \
+    ./scripts/capture-report.sh > /dev/null 2>&1 &
+
+  REPORT_PID=$!
+}
+
+stop_report_capture() {
+  [[ -n "$REPORT_PID" ]] || return 0
+  if kill -0 "$REPORT_PID" 2>/dev/null; then
+    kill -TERM "$REPORT_PID" 2>/dev/null || true
+    wait "$REPORT_PID" 2>/dev/null || true
+  fi
+  REPORT_PID=""
+}
+
 cleanup() {
   stop_monitor || true
+  stop_report_capture || true
 }
 trap cleanup EXIT INT TERM
 
@@ -231,23 +261,27 @@ main() {
   echo "== sync =="
   reset_report
   start_monitor sync
+  start_report_capture sync
   seed_jobs
   local start end
   start="$(now_ms)"
   run_sync
   end="$(now_ms)"
   stop_monitor
+  stop_report_capture
   echo "sync total_ms=$((end - start))"
   print_report
 
   echo "== async =="
   reset_report
   start_monitor async
+  start_report_capture async
   seed_jobs
   start="$(now_ms)"
   run_async
   end="$(now_ms)"
   stop_monitor
+  stop_report_capture
   echo "async total_ms=$((end - start))"
   print_report
 }

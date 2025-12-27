@@ -1,0 +1,7 @@
+runId=
+mode=
+items=
+done=
+error=
+avgMs=
+jobsPerMinute=

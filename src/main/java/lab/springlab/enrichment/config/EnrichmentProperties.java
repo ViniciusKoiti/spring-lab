@@ -11,6 +11,7 @@ public class EnrichmentProperties {
     private int maxRetries = 3;
     private long backoffMs = 500;
     private long httpTimeoutMs = 1500;
+    private int httpMaxConnections = 50;
     private long stuckThresholdMs = 30000;
     private long schedulerFixedDelayMs = 5000;
 
@@ -60,6 +61,14 @@ public class EnrichmentProperties {
 
     public void setHttpTimeoutMs(long httpTimeoutMs) {
         this.httpTimeoutMs = httpTimeoutMs;
+    }
+
+    public int getHttpMaxConnections() {
+        return httpMaxConnections;
+    }
+
+    public void setHttpMaxConnections(int httpMaxConnections) {
+        this.httpMaxConnections = httpMaxConnections;
     }
 
     public long getStuckThresholdMs() {
