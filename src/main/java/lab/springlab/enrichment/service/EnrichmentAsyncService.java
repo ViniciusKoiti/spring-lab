@@ -1,5 +1,7 @@
 package lab.springlab.enrichment.service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import lab.springlab.enrichment.config.EnrichmentProperties;
 import lab.springlab.enrichment.domain.EnrichmentJob;
 import lab.springlab.enrichment.domain.EnrichmentStatus;
@@ -12,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,6 +27,9 @@ public class EnrichmentAsyncService {
     private final EnrichmentJobRepository repository;
     private final EnrichmentProperties properties;
     private final EnrichmentJobProcessor processor;
+
+    @Autowired
+    private EntityManager entityManager;
 
     public EnrichmentAsyncService(EnrichmentJobRepository repository,
                                   EnrichmentProperties properties,
@@ -39,6 +45,7 @@ public class EnrichmentAsyncService {
         dispatchPendingJobs();
     }
 
+    @Transactional
     public DispatchResult dispatchPendingJobs() {
         int stuckRecovered = processor.recoverStuckJobs();
         Instant now = Instant.now();
@@ -58,7 +65,43 @@ public class EnrichmentAsyncService {
             }
         }
 
+        // FIX: Clear Hibernate session to release entities between batch cycles
+        // Without this, entities accumulate in memory across scheduler invocations
+        entityManager.clear();
+
         log.info("Dispatch async completed claimed={} stuckRecovered={}", claimed, stuckRecovered);
+        return new DispatchResult(claimed, stuckRecovered);
+    }
+
+    /**
+     * Dispatches ALL pending jobs without batch-size limit.
+     * Used for benchmarking to eliminate scheduler influence.
+     */
+    @Transactional
+    public DispatchResult dispatchAllPendingJobs() {
+        int stuckRecovered = processor.recoverStuckJobs();
+        Instant now = Instant.now();
+        List<EnrichmentJob> candidates = repository.findAllPending(
+                EnrichmentStatus.PENDING,
+                EnrichmentStatus.RETRY_SCHEDULED,
+                now);
+
+        log.info("Dispatch ALL async started with {} candidates", candidates.size());
+
+        int claimed = 0;
+        for (EnrichmentJob job : candidates) {
+            int updated = repository.claim(job.getId(), EnrichmentStatus.PROCESSING, Instant.now(),
+                    EnumSet.of(EnrichmentStatus.PENDING, EnrichmentStatus.RETRY_SCHEDULED));
+            if (updated == 1) {
+                claimed++;
+                processJobAsync(job.getId(), job.getPayloadJson(), job.getRetryCount());
+            }
+        }
+
+        // FIX: Clear Hibernate session to release entities
+        entityManager.clear();
+
+        log.info("Dispatch ALL async completed claimed={} stuckRecovered={}", claimed, stuckRecovered);
         return new DispatchResult(claimed, stuckRecovered);
     }
 

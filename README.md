@@ -23,6 +23,25 @@ Avoid this approach for high-volume, multi-region, or strict ordering requiremen
 ```
 Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 
+## Uso rapido (PT-BR)
+Este projeto compara fluxo sincrono vs assincrono para enriquecimento de dados via API externa.
+Para rodar localmente:
+```bash
+./gradlew bootRun
+```
+Endpoints de laboratorio ficam em `http://localhost:8070` quando `lab.enabled=true`.
+
+## Gerando o flow-compare em outra maquina (PT-BR)
+1) Suba a aplicacao com `lab.enabled=true`.
+2) Garanta que Python 3 esteja instalado.
+3) Execute o script abaixo:
+```bash
+BASE_URL=http://localhost:8070 ITEMS_LIST=100,250,500 RUNS=3 python3 scripts/compare-flow.py
+```
+O script gera dois arquivos em `results/`:
+- `results/flow-compare-<timestamp>.csv` (detalhado por execucao)
+- `results/flow-compare-summary-<timestamp>.csv` (media por modo e tamanho)
+
 ## Profiles and Lab Mode
 - `lab.enabled=true` enables lab-only endpoints and in-app benchmarks.
 - Keep `lab.enabled=false` in non-lab environments.
@@ -82,6 +101,33 @@ Plot the CSV:
 python3 scripts/plot-report.py results/report-sync-<timestamp>.csv --out results/report-sync.png
 python3 scripts/plot-report.py results/report-async-<timestamp>.csv --out results/report-async.png
 ```
+
+## Compare Flow with Memory Tracking
+
+Run comprehensive comparison including heap usage metrics:
+```bash
+BASE_URL=http://localhost:8070 ITEMS_LIST=100,250,500 RUNS=3 python3 scripts/compare-memory.py
+```
+
+**Modes available:**
+- `async` - Async with batch-size=250
+- `async-all` - Async without batch limit (loads all items)
+- `sync` - Sync with batch-size=250
+- `sync-all` - Sync without batch limit (loads all items)
+
+**Output:** `results/memory-compare-{timestamp}.csv` with memory and performance metrics.
+
+**CSV Columns:**
+- Time metrics: `drain_ms`
+- Heap: `heap_used_min_mb`, `heap_used_max_mb`, `heap_used_avg_mb`, `heap_used_p95_mb`, `heap_used_p99_mb`, `heap_max_mb`, `heap_committed_min_mb`, `heap_committed_max_mb`, `heap_committed_avg_mb`
+- Job counts: `success_count`, `error_count`, `retry_count`
+
+**Environment variables:**
+- `BASE_URL` - Base URL of the application (default: http://localhost:8070)
+- `ITEMS_LIST` - Comma-separated list of item counts (default: 100,250,500)
+- `RUNS` - Number of runs per configuration (default: 3)
+- `MEMORY_POLL_MS` - Memory polling interval in milliseconds (default: 500)
+- `OUTPUT_DIR` - Output directory for results (default: results)
 
 ## End-to-End Benchmark Endpoint
 Endpoint:

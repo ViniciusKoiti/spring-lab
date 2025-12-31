@@ -21,6 +21,11 @@ public interface EnrichmentJobRepository extends JpaRepository<EnrichmentJob, UU
                                     @Param("now") Instant now,
                                     Pageable pageable);
 
+    @Query("select j from EnrichmentJob j where (j.status = :pending) or (j.status = :retry and j.nextAttemptAt <= :now) order by j.createdAt asc")
+    List<EnrichmentJob> findAllPending(@Param("pending") EnrichmentStatus pending,
+                                       @Param("retry") EnrichmentStatus retry,
+                                       @Param("now") Instant now);
+
     List<EnrichmentJob> findByStatus(EnrichmentStatus status, Pageable pageable);
 
     long countByStatus(EnrichmentStatus status);

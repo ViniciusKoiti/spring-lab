@@ -4,6 +4,9 @@
 Environment variables:
   BASE_URL        (default: http://localhost:8070)
   ITEMS_LIST      (default: 100,250,500)
+  ITEMS_START     (optional, integer)
+  ITEMS_END       (optional, integer)
+  ITEMS_STEP      (optional, integer, default: 100 when using range)
   RUNS            (default: 3)
   POLL_INTERVAL_MS (default: 1000)
   TIMEOUT_MS      (default: 600000)
@@ -56,9 +59,31 @@ def parse_items_list(value: str) -> list[int]:
     return items
 
 
+def parse_items_range() -> list[int] | None:
+    start = os.getenv("ITEMS_START")
+    end = os.getenv("ITEMS_END")
+    if start is None or end is None:
+        return None
+    try:
+        start_value = int(start)
+        end_value = int(end)
+        step_value = int(os.getenv("ITEMS_STEP", "100"))
+    except ValueError as exc:
+        raise ValueError("ITEMS_START/ITEMS_END/ITEMS_STEP must be integers") from exc
+    if step_value <= 0:
+        raise ValueError("ITEMS_STEP must be > 0")
+    if end_value < start_value:
+        raise ValueError("ITEMS_END must be >= ITEMS_START")
+    return list(range(start_value, end_value + 1, step_value))
+
+
 def load_config() -> Config:
     base_url = os.getenv("BASE_URL", "http://localhost:8070").rstrip('/')
-    items_list = parse_items_list(os.getenv("ITEMS_LIST", "100,250,500"))
+    items_range = parse_items_range()
+    if items_range is None:
+        items_list = parse_items_list(os.getenv("ITEMS_LIST", "100,250,500"))
+    else:
+        items_list = items_range
     runs = getenv_int("RUNS", 3)
     poll_interval_ms = getenv_int("POLL_INTERVAL_MS", 1000)
     timeout_ms = getenv_int("TIMEOUT_MS", 600000)

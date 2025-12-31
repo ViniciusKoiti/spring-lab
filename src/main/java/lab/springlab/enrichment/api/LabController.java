@@ -70,6 +70,20 @@ public class LabController {
         return ResponseEntity.ok(syncService.dispatchPendingJobsSync());
     }
 
+    @PostMapping("/run-all")
+    public ResponseEntity<DispatchResult> runAll() {
+        log.info("Dispatching ALL enrichment jobs async (no batch limit)");
+        reportService.startRun("async-all");
+        return ResponseEntity.ok(asyncService.dispatchAllPendingJobs());
+    }
+
+    @PostMapping("/run-sync-all")
+    public ResponseEntity<DispatchResult> runSyncAll() {
+        log.info("Dispatching ALL enrichment jobs sync (no batch limit)");
+        reportService.startRun("sync-all");
+        return ResponseEntity.ok(syncService.dispatchAllPendingJobsSync());
+    }
+
     @GetMapping("/jobs")
     public ResponseEntity<List<EnrichmentJobView>> jobs(@RequestParam(required = false) EnrichmentStatus status,
                                                         @RequestParam(defaultValue = "50") int limit) {
