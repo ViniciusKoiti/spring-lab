@@ -129,6 +129,46 @@ BASE_URL=http://localhost:8070 ITEMS_LIST=100,250,500 RUNS=3 python3 scripts/com
 - `MEMORY_POLL_MS` - Memory polling interval in milliseconds (default: 500)
 - `OUTPUT_DIR` - Output directory for results (default: results)
 
+## Memory Footprint Investigation
+
+This project includes a comprehensive investigation of batch processing and memory usage trade-offs.
+
+### Key Findings
+
+⚠️ **Important Discovery:** `PageRequest.of(0, 250)` generates correct SQL pagination (`LIMIT 250`), but with **small payloads (~200 bytes)**, the memory difference between batch and load-all is **minimal (4-7%)**.
+
+#### Benchmark Results (2000 items)
+
+**Performance & Memory:**
+```
+Mode      | Time   | Heap Used Avg | vs Load-All
+----------|--------|---------------|-------------
+Batch     | 38.8s  | 92.9 MB       | 3.1x slower, -4% mem
+Load-all  | 12.6s  | 96.7 MB       | Baseline
+```
+
+**Conclusion:** For small payloads, batch processing sacrifices **3x performance** for only **4% memory savings**.
+
+#### When Batch Processing Really Helps
+
+✅ **Use batch when:**
+- Payload size > 1KB per item
+- Volume unpredictable (spikes > 10,000 items possible)
+- Heap budget limited (<500 MB available)
+- Priority is **stability** over performance
+
+✅ **Use load-all when:**
+- Payload size < 500 bytes per item
+- Volume known and limited (<5,000 items)
+- Heap budget generous (>1 GB available)
+- Priority is **performance** (tight SLA)
+
+For detailed technical analysis, see:
+- [Pagination Memory Investigation](docs/pagination-memory-investigation.md) - Complete technical deep-dive
+- [LinkedIn Post Prompt](docs/linkedin-prompt.md) - Story of the investigation and lessons learned
+
+**Key Lesson:** Always validate architectural decisions with real data from your domain. Batch processing is excellent when context justifies the trade-off (large payloads, high volumes). With small payloads, the benefit may not outweigh the performance cost.
+
 ## End-to-End Benchmark Endpoint
 Endpoint:
 ```
