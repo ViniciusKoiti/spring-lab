@@ -1,5 +1,11 @@
 # SpringLab: Async Data Enrichment Case Study
 
+## Language / Idioma
+- English: see the section below.
+- Português (PT-BR): jump to `## Português (PT-BR)`.
+
+## English
+
 ## Problem Statement
 This lab models a system that stores incomplete records and enriches them by calling an external HTTP API. The external API has variable latency, returns errors (4xx/5xx), enforces rate limits, and cannot handle high concurrent load. The solution must be asynchronous, resilient, and avoid external brokers (Kafka/RabbitMQ).
 
@@ -22,25 +28,6 @@ Avoid this approach for high-volume, multi-region, or strict ordering requiremen
 ./gradlew bootRun
 ```
 Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-
-## Uso rapido (PT-BR)
-Este projeto compara fluxo sincrono vs assincrono para enriquecimento de dados via API externa.
-Para rodar localmente:
-```bash
-./gradlew bootRun
-```
-Endpoints de laboratorio ficam em `http://localhost:8070` quando `lab.enabled=true`.
-
-## Gerando o flow-compare em outra maquina (PT-BR)
-1) Suba a aplicacao com `lab.enabled=true`.
-2) Garanta que Python 3 esteja instalado.
-3) Execute o script abaixo:
-```bash
-BASE_URL=http://localhost:8070 ITEMS_LIST=100,250,500 RUNS=3 python3 scripts/compare-flow.py
-```
-O script gera dois arquivos em `results/`:
-- `results/flow-compare-<timestamp>.csv` (detalhado por execucao)
-- `results/flow-compare-summary-<timestamp>.csv` (media por modo e tamanho)
 
 ## Profiles and Lab Mode
 - `lab.enabled=true` enables lab-only endpoints and in-app benchmarks.
@@ -230,3 +217,24 @@ Run:
 ```
 
 Benchmarks live in `src/jmh/java/lab/springlab/enrichment/bench/`.
+
+## Português (PT-BR)
+
+## Uso rapido
+Este projeto compara fluxo sincrono vs assincrono para enriquecimento de dados via API externa.
+Para rodar localmente:
+```bash
+./gradlew bootRun
+```
+Endpoints de laboratorio ficam em `http://localhost:8070` quando `lab.enabled=true`.
+
+## Gerando o flow-compare em outra maquina
+1) Suba a aplicacao com `lab.enabled=true`.
+2) Garanta que Python 3 esteja instalado.
+3) Execute o script abaixo:
+```bash
+BASE_URL=http://localhost:8070 ITEMS_LIST=100,250,500 RUNS=3 python3 scripts/compare-flow.py
+```
+O script gera dois arquivos em `results/`:
+- `results/flow-compare-<timestamp>.csv` (detalhado por execucao)
+- `results/flow-compare-summary-<timestamp>.csv` (media por modo e tamanho)
